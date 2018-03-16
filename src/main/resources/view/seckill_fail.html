@@ -1,0 +1,13 @@
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>秒杀失败</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+<h1>
+秒杀失败：<p th:text="${errormsg}"></p>
+<a th:href="'/seckill/gopay/'+${seckillOrder.orderId}+'/'+${item.itemId}">去支付</a>
+</h1>
+</body>
+</html>

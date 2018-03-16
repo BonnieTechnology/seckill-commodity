@@ -1,0 +1,273 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>商品详情</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<!-- jquery -->
+<script type="text/javascript" src="/js/jquery.min.js"></script>
+<!-- bootstrap -->
+<link rel="stylesheet" type="text/css"
+	href="/bootstrap/css/bootstrap.min.css" />
+<script type="text/javascript" src="/bootstrap/js/bootstrap.min.js"></script>
+<!-- jquery-validator -->
+<script type="text/javascript"
+	src="/jquery-validation/jquery.validate.min.js"></script>
+<script type="text/javascript"
+	src="/jquery-validation/localization/messages_zh.min.js"></script>
+<!-- layer -->
+<script type="text/javascript" src="/layer/layer.js"></script>
+<!-- md5.js -->
+<script type="text/javascript" src="/js/md5.min.js"></script>
+<!-- common.js -->
+<script type="text/javascript" src="/js/common.js"></script>
+<style type="text/css">
+html, body {
+	height: 100%;
+	width: 100%;
+}
+
+body {
+	background: url('/img/bg2.jpg') no-repeat;
+	background-size: 100% 100%;
+}
+
+#itemlist td {
+	border-top: 1px solid #39503f61;
+}
+</style>
+</head>
+<body>
+
+	<div class="panel panel-default"
+		style="height: 100%; background-color: rgba(222, 222, 222, 0.8)">
+		<div class="panel-heading">秒杀商品详情</div>
+		<div class="panel-body">
+			<span id="userTip"> 您还没有登录，请登陆后再操作<br /></span> <span>没有收货地址的提示。。。</span>
+		</div>
+		<table class="table" id="itemlist">
+			<tr>
+				<td>商品名称</td>
+				<td colspan="3" id="itemName"></td>
+			</tr>
+			<tr>
+				<td>商品图片</td>
+				<td colspan="3"><img id="itemImg" width="200" height="200" /></td>
+			</tr>
+			<tr>
+				<td>秒杀开始时间</td>
+				<td id="startTime"></td>
+				<td><input type="hidden" id="remainSeconds" /> <span
+					id="seckillTip"></span></td>
+				<td>
+					<!--  
+        	<form id="seckillForm" method="post" action="/seckill/do_seckill">
+        		<button class="btn btn-primary btn-block" type="submit" id="buyButton">立即秒杀</button>
+        		<input type="hidden" name="itemId"  id="itemId" />
+        	</form>-->
+					<div class="row">
+						<div class="form-inline">
+							<img id="verifyCodeImg" width="80" height="32"
+								style="display: none" onclick="refreshVerifyCode()" /> <input
+								id="verifyCode" class="form-control" style="display: none" />
+							<button class="btn btn-primary" type="button" id="buyButton"
+								onclick="getseckillPath()">立即秒杀</button>
+						</div>
+					</div> <input type="hidden" name="itemId" id="itemId" />
+				</td>
+			</tr>
+			<tr>
+				<td>商品原价</td>
+				<td colspan="3" id="itemPrice"></td>
+			</tr>
+			<tr>
+				<td>秒杀价</td>
+				<td colspan="3" id="seckillPrice"></td>
+			</tr>
+			<tr>
+				<td>库存数量</td>
+				<td colspan="3" id="max-num"></td>
+			</tr>
+		</table>
+	</div>
+</body>
+<script>
+	//获取秒杀的地址
+	function getseckillPath() {
+		var itemId = $("#itemId").val();
+		g_showLoading();
+		$.ajax({
+			url : "/seckill/path",
+			type : "GET",
+			data : {
+				itemId : itemId,
+				//验证码
+				verifyCode : $("#verifyCode").val()
+			},
+			success : function(data) {
+				if (data.status == 200) {
+					var path = data.data;
+					doseckill(path);
+				} else {
+					layer.msg(data.msg);
+				}
+			},
+			error : function() {
+				layer.msg("客户端请求有误");
+			}
+		});
+	}
+
+	function getseckillResult(itemId) {
+		g_showLoading();
+		$.ajax({
+			url : "/seckill/result",
+			type : "GET",
+			data : {
+				itemId : $("#itemId").val(),
+			},
+			success : function(data) {
+				if (data.status == 200) {
+					var result = data.data;
+					if (result < 0) {
+						layer.msg("对不起，秒杀失败");
+					} else if (result == 0) {//继续轮询
+						layer.msg("排队中。。。。。");
+						setTimeout(function() {
+							getseckillResult(itemId);
+						}, 200);
+					} else {
+						layer.confirm("恭喜你，秒杀成功！查看订单？", {
+							btn : [ "确定", "取消" ]
+						}, function() {
+							window.location.href = "/order_detail.htm?orderId="
+									+ result;
+						}, function() {
+							layer.closeAll();
+						});
+					}
+				} else {
+					layer.msg(data.msg);
+				}
+			},
+			error : function() {
+				layer.msg("客户端请求有误");
+			}
+		});
+	}
+
+	function doseckill(path) {
+		$.ajax({
+			url : "/seckill/" + path + "/doseckill",
+			type : "POST",
+			data : {
+				itemId : $("#itemId").val()
+			},
+			success : function(data) {
+				if (data.status == 200) {
+					//window.location.href="/order_detail.htm?orderId="+data.data.id;
+					getseckillResult($("#itemId").val());
+				} else if (data.status == 502) {
+					layer.confirm("您已经秒杀到了商品！活动只能抢购1台！", {
+						btn : [ "确定", "取消" ]
+					}, function() {
+						layer.closeAll();
+					}, function() {
+						layer.closeAll();
+					});
+				} else {
+					layer.msg(data.msg);
+				}
+			},
+			error : function() {
+				layer.msg("客户端请求有误");
+			}
+		});
+
+	}
+	//渲染页面
+	function render(detail) {
+		var seckillStatus = detail.status;
+		var remainSeconds = detail.remainSeconds;
+		var item = detail.item;
+		var user = detail.user;
+		//判断是登录
+		if (user) {
+			$("#userTip").hide();
+		}
+		//将数据展示在页面上
+		$("#itemName").text(item.itemTitle);
+		$("#itemImg").attr("src", item.itemImage);
+		$("#startTime").text(
+				new Date(item.startDate).format("yyyy-MM-dd hh:mm:ss"));
+		$("#remainSeconds").val(remainSeconds);
+		$("#itemId").val(item.seckillId);
+		$("#itemPrice").text(item.itemPrice / 100 + "元");
+		$("#seckillPrice").text(item.seckillPrice / 100 + "元");
+		$("#max-num").text(item.maxNum);
+		countDown();
+	}
+
+	$(function() {
+		//countDown();
+		getDetail();
+	});
+
+	function getDetail() {
+		//获取参数
+		var itemId = g_getQueryString("itemId");
+		//获取商品的信息
+		$.ajax({
+			url : "/item/itemDetail/" + itemId,
+			type : "GET",
+			success : function(data) {
+				if (data.status == 200) {
+					render(data.data);
+				} else {
+					layer.msg(data.msg);
+				}
+			},
+			error : function() {
+				layer.msg("客户端请求有误");
+			}
+		});
+	}
+
+	function countDown() {
+		var remainSeconds = $("#remainSeconds").val();
+		var timeout;
+		if (remainSeconds > 0) {//秒杀还没开始，倒计时
+			$("#buyButton").attr("disabled", true);
+			$("#buyButton").attr("class", "btn btn-block");
+			$("#seckillTip").html("秒杀倒计时：" + remainSeconds + "秒");
+			timeout = setTimeout(function() {
+				$("#countDown").text(remainSeconds - 1);
+				$("#remainSeconds").val(remainSeconds - 1);
+				countDown();
+				2
+			}, 1000);
+		} else if (remainSeconds == 0) {//秒杀进行中
+			$("#buyButton").attr("disabled", false);
+			if (timeout) {
+				clearTimeout(timeout);
+			}
+			$("#seckillTip").html("秒杀进行中");
+			$("#verifyCodeImg").attr("src",
+					"/seckill/verifyCode?itemId=" + $("#itemId").val());
+			$("#verifyCodeImg").show();
+			$("#verifyCode").show();
+		} else {//秒杀已经结束 
+			$("#buyButton").attr("disabled", true);
+			$("#buyButton").attr("class", "btn btn-block");
+			$("#seckillTip").html("秒杀已经结束");
+			$("#verifyCodeImg").hide();
+			$("#verifyCode").hide();
+		}
+	}
+	function refreshVerifyCode() {
+		$("#verifyCodeImg").attr(
+				"src",
+				"/seckill/verifyCode?itemId=" + $("#itemId").val()
+						+ "&timestamp=" + new Date().getTime());
+	}
+</script>
+</html>
