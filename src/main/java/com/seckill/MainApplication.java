@@ -13,11 +13,4 @@ public class MainApplication  {
 		SpringApplication.run(MainApplication.class, args);
 	}
 	
-//	//war包启动的方法
-//	@Override
-//	protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {
-//		// TODO Auto-generated method stub
-//		return builder.sources(MainApplication.class);
-//	}
-	
 }
